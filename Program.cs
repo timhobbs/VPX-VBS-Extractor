@@ -23,39 +23,60 @@ namespace VPX_VBS_Extractor
             {
                 string tableFile = (new FileInfo(tablePath)).Name;
                 string vbsFile = tableFile.Replace(".vpx", ".vbs");
+                string povFile = tableFile.Replace(".vpx", ".pov");
                 string vbsPath = Path.Combine(options.Value.PathToTables, vbsFile);
+                string povPath = Path.Combine(options.Value.PathToTables, povFile);
+                string commandString;
 
                 if (!options.Value.Overwrite && File.Exists(vbsPath))
                 {
                     Console.WriteLine($"SKIP: Script already exists for {tableFile}");
-                    continue;
-                }
-
-                string commandString = $"-minimized -extractvbs \"{tablePath}\"";
-
-                ProcessStartInfo startInfo = new ProcessStartInfo(options.Value.PathToVPinballXExecutable, commandString);
-                startInfo.CreateNoWindow = true;
-                startInfo.UseShellExecute = true;
-
-                Process process = new Process();
-                process.StartInfo = startInfo;
-                process.EnableRaisingEvents = true;
-                process.Exited += (s, e) => { resetEvent.Set(); };
-
-                process.Start();
-
-                if (resetEvent.WaitOne(options.Value.TimeoutSeconds * 1000)) {
-                    Console.WriteLine($"CREATE: {vbsFile}");
                 }
                 else
                 {
-                    Console.WriteLine($"TIMEOUT: {vbsFile} - Unsure if script was extracted correctly.");
+                    commandString = $"-minimized -extractvbs \"{tablePath}\"";
+
+                    StartProcess(options, resetEvent, vbsFile, commandString);
                 }
 
-                resetEvent.Reset();
+                if (!options.Value.Overwrite && File.Exists(povPath))
+                {
+                    Console.WriteLine($"SKIP: POV already exists for {tableFile}");
+                }
+                else
+                {
+                    commandString = $"-minimized -pov \"{tablePath}\"";
+
+                    StartProcess(options, resetEvent, povFile, commandString);
+                }
 
                 if (options.Value.TestMode) return;
             }
+        }
+
+        private static void StartProcess(ParserResult<Options> options, ManualResetEvent resetEvent, string fileName, string commandString)
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo(options.Value.PathToVPinballXExecutable, commandString);
+            startInfo.CreateNoWindow = true;
+            startInfo.UseShellExecute = true;
+
+            Process process = new Process();
+            process.StartInfo = startInfo;
+            process.EnableRaisingEvents = true;
+            process.Exited += (s, e) => { resetEvent.Set(); };
+
+            process.Start();
+
+            if (resetEvent.WaitOne(options.Value.TimeoutSeconds * 1000))
+            {
+                Console.WriteLine($"CREATE: {fileName}");
+            }
+            else
+            {
+                Console.WriteLine($"TIMEOUT: {fileName} - Unsure if script was extracted correctly.");
+            }
+
+            resetEvent.Reset();
         }
     }
 
